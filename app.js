@@ -64,7 +64,7 @@ const factory = {
     }
 };
 
-const pool = genericPool.createPool(factory, {
+const browserPool = genericPool.createPool(factory, {
     max: POOL_MAX,
     min: POOL_MIN,
 });
@@ -85,28 +85,29 @@ app.get("/health", (req, res) => {
 
 
 app.get("/getImage", async (req, res) => {
-    const browser = await pool.acquire();
-    const page = await browser.newPage();
-    // const page = await browser2.newPage();
-    console.log(pool.borrowed);
-
-    count = count + 1;
-
+    // console.log(browserPool.pending);
+    if(browserPool.pending >= POOL_MAX) {
+        // console.log("Service Unavailable");
+        return res.status(503).send("Service Unavailable");
+    }
+    let browser = null;
     try {
+        browser = await browserPool.acquire();
+        const page = await browser.newPage();
+
         await page.goto('https://www.google.com/');
         await page.setViewport({ width: 1366, height: 768 });
-        await page.screenshot({ path: `screenshot_${count}.png` });
-
+        const imageData = await page.screenshot({ encoding: "base64", type: "jpeg" });
+        res.status(200).send(imageData);
     } catch (error) {
         console.log(error);
         res.status(500).send("Internal Server Error");
     } finally {
-        console.log("Releasing page");
-        await pool.release(browser);
-        // await page.close();
+        // console.log("Closing Page");
+        if(browser !== null) {
+            await browserPool.release(browser);
+        }
     }
-
-    res.status(200).send("OK");
 });
 
 app.listen(process.env.PORT || 8000, () => {
