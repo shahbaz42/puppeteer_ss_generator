@@ -5,8 +5,8 @@ import morgan from 'morgan';
 import puppeteer from 'puppeteer';
 import genericPool from 'generic-pool';
 
-const POOL_MAX = 8;
-const POOL_MIN = 1;
+const POOL_MAX = 20;
+const POOL_MIN = 10;
 const PAGE_MAX = 8;
 
 const app = express();
@@ -84,7 +84,7 @@ app.get("/health", (req, res) => {
 
 
 
-app.get("/getImage", async (req, res) => {
+app.get("/getImageTest", async (req, res) => {
     // console.log(browserPool.pending);
     if(browserPool.pending >= POOL_MAX) {
         // console.log("Service Unavailable");
@@ -98,6 +98,38 @@ app.get("/getImage", async (req, res) => {
         await page.goto('https://www.google.com/');
         await page.setViewport({ width: 1366, height: 768 });
         const imageData = await page.screenshot({ encoding: "base64", type: "jpeg" });
+        await page.close();
+        res.status(200).send(imageData);
+    } catch (error) {
+        console.log(error);
+        res.status(500).send("Internal Server Error");
+    } finally {
+        // console.log("Closing Page");
+        if(browser !== null) {
+            await browserPool.release(browser);
+        }
+    }
+});
+
+
+app.post("/getImage", async (req, res) => {
+    if(browserPool.pending >= POOL_MAX) {
+        return res.status(503).send("Service Unavailable");
+    }
+    const htmlBase64 = req.body.html;
+    const height = req.body.height;
+    const width = req.body.width;
+
+    const html = Buffer.from(htmlBase64, 'base64').toString('utf-8');
+    
+    let browser = null;
+    try {
+        browser = await browserPool.acquire();
+        const page = await browser.newPage();
+        await page.setContent(html, { waitUntil: "networkidle0" }); 
+        await page.setViewport({ width: width, height: height });
+        const imageData = await page.screenshot({ encoding: "base64", type: "jpeg" });
+        await page.close();
         res.status(200).send(imageData);
     } catch (error) {
         console.log(error);
