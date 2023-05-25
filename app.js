@@ -116,24 +116,34 @@ app.post("/getImage", async (req, res) => {
     if(browserPool.pending >= POOL_MAX) {
         return res.status(503).send("Service Unavailable");
     }
-    const htmlBase64 = req.body.html;
+    const html = req.body.html;
+    const base64 = req.body.base64;
     const height = req.body.height;
     const width = req.body.width;
 
-    const html = Buffer.from(htmlBase64, 'base64').toString('utf-8');
+    if (html === undefined || base64 === undefined || height === undefined || width === undefined) {
+        return res.status(400).send("Bad Request");
+    }
+
+    let htmlCode = "";
+    if (base64 === true) {
+        htmlCode = Buffer.from(html, 'base64').toString('utf-8');
+    } else {
+        htmlCode = html;
+    }
     
     let browser = null;
     try {
         browser = await browserPool.acquire();
         const page = await browser.newPage();
-        await page.setContent(html, { waitUntil: "networkidle0" }); 
+        await page.setContent(htmlCode, { waitUntil: "networkidle0" }); 
         await page.setViewport({ width: width, height: height });
         const imageData = await page.screenshot({ encoding: "base64", type: "jpeg" });
         await page.close();
         res.status(200).send(imageData);
     } catch (error) {
         console.log(error);
-        res.status(500).send("Internal Server Error");
+        res.status(500).send(error);
     } finally {
         // console.log("Closing Page");
         if(browser !== null) {
