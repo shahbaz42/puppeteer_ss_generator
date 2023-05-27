@@ -1,4 +1,5 @@
 import dotenv from 'dotenv';
+process.setMaxListeners(50);
 dotenv.config();
 import express from 'express';
 import morgan from 'morgan';
@@ -6,8 +7,8 @@ import puppeteer from 'puppeteer';
 import genericPool from 'generic-pool';
 import axios from 'axios';
 
-const POOL_MAX = 20;
-const POOL_MIN = 10;
+const POOL_MAX = 40;
+const POOL_MIN = 20;
 const PAGE_MAX = 8;
 const IMG_SIMILARITY_SERVER_URL = "http://127.0.0.1:5000/similarity"
 
@@ -202,8 +203,56 @@ app.post("/getSimiliarity", async (req, res) => {
     } 
 });
 
+app.post("/getSimiliarityV2", async (req, res) => {
+    if(browserPool.pending >= POOL_MAX) {
+        return res.status(503).send("Service Unavailable");
+    }
+    const html = req.body.html;
+    const base64 = req.body.base64;
+    const height = req.body.height;
+    const width = req.body.width;
+    const schemaID = req.body.schemaID;
+
+    if (html === undefined || base64 === undefined || height === undefined || width === undefined) {
+        return res.status(400).send("Bad Request");
+    }
+
+    let htmlCode = "";
+    if (base64 === true) {
+        htmlCode = Buffer.from(html, 'base64').toString('utf-8');
+    } else {
+        htmlCode = html;
+    }
+    
+    let browser = null;
+    try {
+        browser = await browserPool.acquire();
+        const page = await browser.newPage();
+        await page.setContent(htmlCode, { waitUntil: "networkidle0" }); 
+        await page.setViewport({ width: width, height: height });
+        const imageData = await page.screenshot({ encoding: "base64", type: "png" });
+        await page.close();
+
+        const body = {
+            schemaID: schemaID,
+            image2: imageData,
+        }
+        const similarity = await axios.post(IMG_SIMILARITY_SERVER_URL+"V2", body);
+        console.log(similarity.data);
+        res.status(200).send(similarity.data);
+    } catch (error) {
+        console.log(error);
+        res.status(500).send(error);
+    } finally {
+        // console.log("Closing Page");
+        if(browser !== null) {
+            await browserPool.release(browser);
+        }
+    } 
+});
+
+
 
 app.listen(process.env.PORT || 8000, () => {
     console.log("Server is up and running");
 });
-
