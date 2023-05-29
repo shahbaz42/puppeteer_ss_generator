@@ -1,0 +1,23 @@
+{
+  "name": "ml-image-comparison",
+  "version": "1.0.0",
+  "description": "",
+  "main": "index.js",
+  "scripts": {
+    "test": "echo \"Error: no test specified\" && exit 1"
+  },
+  "repository": {
+    "type": "git",
+    "url": "git+https://github.com/shahbaz42/image-comparison-server.git"
+  },
+  "keywords": [],
+  "author": "",
+  "license": "ISC",
+  "bugs": {
+    "url": "https://github.com/shahbaz42/image-comparison-server/issues"
+  },
+  "homepage": "https://github.com/shahbaz42/image-comparison-server#readme",
+  "dependencies": {
+    "autocannon": "^7.11.0"
+  }
+}

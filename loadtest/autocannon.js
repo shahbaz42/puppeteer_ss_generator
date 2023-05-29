@@ -18,7 +18,7 @@ const target = {
 const instance = autocannon({
   url: target.url,
   connections: 20, // Number of concurrent connections
-  duration: 10, // Duration of the test in seconds
+  duration: 100, // Duration of the test in seconds
   method: target.method,
   headers: target.headers,
   body: target.body,
